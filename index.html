@@ -402,9 +402,8 @@
   <div class="footer-btm"><div class="wrap">Built in Boston, MA</div></div>
 </footer>
 
-<script src="main.js"></script>
 <script>
-/* ── Demo mode — no backend required ──────────────────────────────── */
+// Simulate matchYAML function
 
 const DEMO_QC_RESULTS = [
   { sample:'CDR3-Lib-1', condition:'Input', status:'ok', results:{
@@ -496,36 +495,52 @@ const DEMO_PARAMS_HTML = `
   </div>
 </div>`;
 
-async function loadDemoData() {
-  const btn = document.getElementById('demo-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
-
-  // Override param panel fetcher — never hits the API
-  window.renderParamPanels = async function() {
-    const w = document.getElementById('params-dynamic');
-    if (w) w.innerHTML = DEMO_PARAMS_HTML;
-  };
-
-  // Inject pipeline so enableStep3 uses it without fetching
-  pipelines['aa_enrichment'] = DEMO_PIPELINE;
-
-  // Fake FASTQ file entries (plain objects — renderFileList only uses .name and .size)
-  files = [
-    { file:{ name:'CDR3-Lib-1_R1.fastq.gz', size:8472318, type:'application/gzip' } },
-    { file:{ name:'CDR3-Lib-1_R2.fastq.gz', size:8469244, type:'application/gzip' } },
-    { file:{ name:'CDR3-Lib-2_R1.fastq.gz', size:9127561, type:'application/gzip' } },
-    { file:{ name:'CDR3-Lib-2_R2.fastq.gz', size:9122083, type:'application/gzip' } },
-    { file:{ name:'CDR3-Sel-1_R1.fastq.gz', size:7348012, type:'application/gzip' } },
-    { file:{ name:'CDR3-Sel-1_R2.fastq.gz', size:7341887, type:'application/gzip' } },
-    { file:{ name:'CDR3-Sel-2_R1.fastq.gz', size:8891234, type:'application/gzip' } },
-    { file:{ name:'CDR3-Sel-2_R2.fastq.gz', size:8887109, type:'application/gzip' } },
+// Simulate matchYAML function
+function matchYAML() {
+  // Parse YAML and show table
+  const yamlText = document.getElementById('yaml-textarea').value;
+  // For demo, assume it's parsed to samples
+  const samples = [
+    { name: 'CDR3-Lib-1', condition: 'Input', r1: 'CDR3-Lib-1_R1.fastq.gz', r2: 'CDR3-Lib-1_R2.fastq.gz' },
+    { name: 'CDR3-Lib-2', condition: 'Input', r1: 'CDR3-Lib-2_R1.fastq.gz', r2: 'CDR3-Lib-2_R2.fastq.gz' },
+    { name: 'CDR3-Sel-1', condition: 'Selected', r1: 'CDR3-Sel-1_R1.fastq.gz', r2: 'CDR3-Sel-1_R2.fastq.gz' },
+    { name: 'CDR3-Sel-2', condition: 'Selected', r1: 'CDR3-Sel-2_R1.fastq.gz', r2: 'CDR3-Sel-2_R2.fastq.gz' }
   ];
-  renderFileList();
 
-  document.getElementById('yaml-textarea').value = DEMO_YAML;
-  matchYAML();   // parses YAML, matches files, shows sample table, calls enableStep2()
+  // Show sample table
+  const tbody = document.getElementById('sample-tbl-body');
+  tbody.innerHTML = '';
+  samples.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${s.name}</td>
+      <td>${s.condition}</td>
+      <td>${s.r1}</td>
+      <td>${s.r2}</td>
+      <td>✓</td>
+      <td><button class="btn-edit">Edit</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
 
-  // Simulate QC running
+  document.getElementById('sample-table-wrap').style.display = 'block';
+  document.getElementById('sample-table-count').textContent = `${samples.length} samples`;
+  document.getElementById('nudge-1').style.display = 'flex';
+
+  // Enable step 2
+  document.getElementById('step2-block').classList.remove('locked');
+  document.getElementById('wf-2').classList.add('active');
+  document.getElementById('qc-badge').textContent = 'Ready to run';
+
+  // Auto-run QC
+  setTimeout(() => {
+    runQC();
+  }, 500);
+}
+
+// Simulate runQC function
+async function runQC() {
   const qcBtn = document.querySelector('#nudge-1 .btn-run');
   if (qcBtn) { qcBtn.disabled = true; qcBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Running QC…`; }
   scrollToStep2();
@@ -533,15 +548,28 @@ async function loadDemoData() {
 
   await new Promise(r => setTimeout(r, 1600));
 
-  // Inject QC results — also calls enableStep3() internally
+  // Inject QC results
   renderQCTable(DEMO_QC_RESULTS);
   toast('QC complete — 4 / 4 samples passed!', 'success');
 
-  await new Promise(r => setTimeout(r, 350));
+  // Proceed to step 3
+  setTimeout(() => {
+    enableStep3();
+  }, 350);
+}
 
-  // Select pipeline
+// Simulate enableStep3
+function enableStep3() {
+  document.getElementById('step3-block').classList.remove('locked');
+  document.getElementById('wf-3').classList.add('active');
+  document.getElementById('pipe-badge').textContent = 'Ready to configure';
+
+  // Load pipeline
+  pipelines = { 'aa_enrichment': DEMO_PIPELINE };
   const dd = document.getElementById('pipeline-dd');
-  if (dd) { dd.value = 'aa_enrichment'; selectPipeline('aa_enrichment'); }
+  dd.innerHTML = '<option value="">— Select Pipeline —</option><option value="aa_enrichment">AA Enrichment</option>';
+  dd.value = 'aa_enrichment';
+  selectPipeline('aa_enrichment');
 
   // Pre-fill reference
   const refTa = document.getElementById('ref-seq-text');
@@ -560,7 +588,7 @@ async function loadDemoData() {
   if (refUpload) refUpload.style.display = 'none';
   _applyRefScanResult({ seqCount:1, type:'aa', minLen:12, maxLen:12, medLen:12, recMin:7, recMax:22 });
 
-  // Override Run button → open demo report
+  // Override Run button
   const runBtn = document.getElementById('run-btn');
   if (runBtn) {
     runBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg> View Demo Results`;
@@ -574,9 +602,92 @@ async function loadDemoData() {
   if (runSum)   runSum.textContent   = '4 samples · AA Enrichment';
   if (runBadge) runBadge.textContent = 'AA Enrichment';
 
-  if (btn) { btn.textContent = '✓ Demo loaded'; }
   scrollToStep3();
-  toast('Demo ready — click "View Demo Results" to see the report!', 'success');
+  toast('Pipeline configured — click "View Demo Results" to see the report!', 'success');
+}
+
+// Dummy functions
+function renderFileList() {
+  // Simulate rendering file list
+  const fileList = document.querySelector('.file-list');
+  if (fileList) {
+    fileList.innerHTML = files.map(f => `<div class="file-item">${f.file.name} (${(f.file.size / 1024 / 1024).toFixed(1)} MB)</div>`).join('');
+  }
+}
+
+function renderQCTable(results) {
+  // Simulate rendering QC table
+  const qcTable = document.getElementById('qc-table-body');
+  if (qcTable) {
+    qcTable.innerHTML = results.map(r => `
+      <tr>
+        <td>${r.sample}</td>
+        <td>${r.condition}</td>
+        <td>✓</td>
+        <td>${r.results.before_filtering.total_reads.toLocaleString()}</td>
+        <td>${r.results.after_filtering.q30_rate}%</td>
+        <td>${r.results.filtering.pass_rate}%</td>
+      </tr>
+    `).join('');
+  }
+  document.getElementById('qc-badge').textContent = 'Complete';
+}
+
+function selectPipeline(id) {
+  // Simulate selecting pipeline
+  const pip = pipelines[id];
+  document.getElementById('pip-info').style.display = 'block';
+  document.getElementById('pip-desc').textContent = pip.description;
+  document.getElementById('pipeline-steps-vis').innerHTML = pip.steps.map(s => `<div class="step-vis">${s}</div>`).join('');
+
+  // Render params
+  window.renderParamPanels = async function() {
+    const w = document.getElementById('params-dynamic');
+    if (w) w.innerHTML = DEMO_PARAMS_HTML;
+  };
+  renderParamPanels();
+}
+
+function scrollToStep2() { document.getElementById('step2-block').scrollIntoView({ behavior: 'smooth' }); }
+function scrollToStep3() { document.getElementById('step3-block').scrollIntoView({ behavior: 'smooth' }); }
+
+function toast(msg, type) {
+  // Simple toast
+  console.log(`${type}: ${msg}`);
+}
+
+function _applyRefScanResult(res) {
+  // Dummy
+}
+
+// Global vars
+let files = [];
+let pipelines = {};
+let referenceFile, referenceType;
+
+async function loadDemoData() {
+
+async function loadDemoData() {
+  const btn = document.getElementById('demo-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+
+  // Fake FASTQ file entries (plain objects — renderFileList only uses .name and .size)
+  files = [
+    { file:{ name:'CDR3-Lib-1_R1.fastq.gz', size:8472318, type:'application/gzip' } },
+    { file:{ name:'CDR3-Lib-1_R2.fastq.gz', size:8469244, type:'application/gzip' } },
+    { file:{ name:'CDR3-Lib-2_R1.fastq.gz', size:9127561, type:'application/gzip' } },
+    { file:{ name:'CDR3-Lib-2_R2.fastq.gz', size:9122083, type:'application/gzip' } },
+    { file:{ name:'CDR3-Sel-1_R1.fastq.gz', size:7348012, type:'application/gzip' } },
+    { file:{ name:'CDR3-Sel-1_R2.fastq.gz', size:7341887, type:'application/gzip' } },
+    { file:{ name:'CDR3-Sel-2_R1.fastq.gz', size:8891234, type:'application/gzip' } },
+    { file:{ name:'CDR3-Sel-2_R2.fastq.gz', size:8887109, type:'application/gzip' } },
+  ];
+  renderFileList();
+
+  document.getElementById('yaml-textarea').value = DEMO_YAML;
+
+  if (btn) { btn.textContent = '✓ Sample data loaded'; }
+  toast('Sample data loaded — click "Match Files" to proceed!', 'success');
 }
 </script>
 </body>
