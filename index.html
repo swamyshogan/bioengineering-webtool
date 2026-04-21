@@ -606,18 +606,24 @@ function enableStep3() {
   toast('Pipeline configured — click "View Demo Results" to see the report!', 'success');
 }
 
-// Dummy functions
 function renderFileList() {
   // Simulate rendering file list
-  const fileList = document.querySelector('.file-list');
+  const fileList = document.getElementById('file-list-items');
   if (fileList) {
     fileList.innerHTML = files.map(f => `<div class="file-item">${f.file.name} (${(f.file.size / 1024 / 1024).toFixed(1)} MB)</div>`).join('');
+  }
+  const foot = document.getElementById('file-list-foot');
+  if (foot) {
+    document.getElementById('fl-count').textContent = `${files.length} files`;
+    const totalSize = files.reduce((sum, f) => sum + f.file.size, 0);
+    document.getElementById('fl-size').textContent = `${(totalSize / 1024 / 1024).toFixed(1)} MB`;
+    foot.style.display = 'flex';
   }
 }
 
 function renderQCTable(results) {
   // Simulate rendering QC table
-  const qcTable = document.getElementById('qc-table-body');
+  const qcTable = document.getElementById('qc-tbl-body');
   if (qcTable) {
     qcTable.innerHTML = results.map(r => `
       <tr>
@@ -686,7 +692,7 @@ async function loadDemoData() {
 
   document.getElementById('yaml-textarea').value = DEMO_YAML;
 
-  if (btn) { btn.textContent = '✓ Sample data loaded'; }
+  if (btn) { btn.textContent = '✓ Sample data loaded'; btn.disabled = false; }
   toast('Sample data loaded — click "Match Files" to proceed!', 'success');
 }
 </script>
