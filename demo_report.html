@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AA Enrichment — Demo Report</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="report_shared.css"/>
+  <style>
+    /* Demo banner */
+    .demo-banner {
+      background: linear-gradient(90deg, #1E3A5F, #2FA4A9);
+      color: #fff;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .3px;
+    }
+    .demo-banner a { color: #D6F0F1; text-decoration: underline; }
+
+    /* Legend */
+    .logo-legend-inline {
+      display: flex; gap: 14px; padding: 6px 16px 12px;
+      flex-wrap: wrap;
+    }
+    .lli { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--t2); }
+    .lli-dot {
+      width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+    }
+
+    /* Condition pill in QC table */
+    .cond-pill {
+      font-size: 10.5px; font-weight: 600; padding: 2px 9px;
+      border-radius: 99px; white-space: nowrap;
+    }
+    .cond-input    { background: #EDE7F6; color: #512DA8; }
+    .cond-selected { background: var(--as); color: var(--a2); }
+
+    /* Key findings list */
+    .kf-list { list-style: none; display: flex; flex-direction: column; gap: 10px;
+      padding: 12px 18px 18px; }
+    .kf-item { display: flex; gap: 10px; align-items: baseline; font-size: 13px; color: var(--t2); }
+    .kf-num { font-size: 11px; font-weight: 700; color: var(--a2); background: var(--as);
+      border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0; }
+
+    /* Animated status fill on load */
+    @keyframes fillBar {
+      from { width: 0% }
+      to   { width: 100% }
+    }
+    #status-fill-el {
+      animation: fillBar 1.1s cubic-bezier(.4,0,.2,1) forwards;
+    }
+
+    /* Bottom action bar */
+    .action-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 8px; padding: 16px 20px;
+      background: var(--sur); border: 1px solid var(--bd);
+      border-radius: var(--r); box-shadow: var(--sh);
+    }
+    .action-bar-meta { display: flex; flex-direction: column; gap: 4px; }
+    .action-bar-title { font-size: 15px; font-weight: 700; color: var(--t1); }
+    .action-bar-sub   { font-size: 12px; color: var(--t2); }
+    .action-bar-tags  { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .action-bar-tag   { font-size: 11px; font-weight: 600; padding: 2px 9px;
+      border-radius: 99px; background: var(--as); color: var(--a2); }
+  </style>
+</head>
+<body>
+
+<div class="demo-banner">
+  Demo report — hardcoded data for illustration.
+  <a href="demo_index.html">← Back to analysis</a>
+</div>
+
+<header class="site-header">
+  <div class="hdr-inner">
+    <div class="logo">
+      <span class="logo-mark">EE</span>
+      <span class="logo-name">Epitope Engineering Platform</span>
+    </div>
+    <nav class="nav">
+      <a href="demo_landing.html" class="nav-a">Overview</a>
+      <a href="#" class="nav-a active">Report</a>
+    </nav>
+  </div>
+</header>
+
+<main class="main">
+<div class="wrap">
+
+  <!-- Pipeline meta -->
+  <div class="pipe-meta">
+    <span class="pipe-desc">
+      Amino acid enrichment analysis — FastP QC + merging, Diamond BLASTX alignment,
+      and logistic regression enrichment with sequence logo output.
+    </span>
+    <div class="pipe-badges">
+      <span class="pipe-badge">FastP</span>
+      <span class="pipe-badge">Diamond BLASTX</span>
+      <span class="pipe-badge">AA Enrichment</span>
+      <span class="pipe-badge">LRT</span>
+    </div>
+  </div>
+
+  <!-- Status bar — completed -->
+  <div class="status-section" style="margin-bottom:24px">
+    <div class="status-header">
+      <span class="status-label">Pipeline Completed — CDR3 Library Enrichment Study</span>
+      <span class="status-chip completed">completed</span>
+    </div>
+    <div class="status-track">
+      <div class="status-fill completed" id="status-fill-el" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Summary stat cards -->
+  <div class="summary-row">
+    <div class="stat-card">
+      <div class="stat-val">4</div>
+      <div class="stat-lbl">Samples</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">2</div>
+      <div class="stat-lbl">Conditions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">3.22M</div>
+      <div class="stat-lbl">Merged Reads</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">95.1%</div>
+      <div class="stat-lbl">Avg Pass Rate</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--a2)">8</div>
+      <div class="stat-lbl">Sig. Enrichments</div>
+    </div>
+  </div>
+
+  <!-- Methodology -->
+  <div class="tbl-card" style="margin-bottom:24px">
+    <div class="tbl-card-hd">Methodology</div>
+    <div class="summary-card-body" style="padding:12px 18px 16px">
+      <p>
+        Paired-end FASTQ files (R1 + R2) were processed through FastP for adapter trimming,
+        quality filtering, and paired-end merging. Merged reads were aligned to the reference
+        peptide library using Diamond BLASTX, yielding per-read amino acid and position assignments.
+        Read counts were aggregated per amino acid per position per sample.
+      </p>
+      <p>
+        Two complementary analyses are performed: (1) <strong>Within-condition</strong> — an
+        intercept-only binomial GLM is fit at each position–AA pair; the log-odds coefficient
+        reflects how frequently that amino acid is observed, shown in the sequence logo.
+        (2) <strong>Pairwise</strong> — a full likelihood-ratio test (LRT) compares a
+        condition-coded model against the intercept-only model. The slope coefficient gives
+        the log-odds ratio between conditions; positive = enriched in the test condition.
+        All p-values are Benjamini–Hochberg corrected.
+      </p>
+    </div>
+  </div>
+
+  <!-- Per-sample QC table -->
+  <div class="tbl-card" style="margin-bottom:24px">
+    <div class="tbl-card-hd">Per-sample QC</div>
+    <div class="tbl-card-desc">
+      FastP adapter trimming and quality filtering metrics per sample. Pass rate = reads
+      surviving all filters ÷ raw input; Q30 reflects base-call accuracy post-filtering.
+    </div>
+    <table class="rpt-tbl">
+      <thead>
+        <tr>
+          <th>Sample</th>
+          <th>Condition</th>
+          <th>R1 Reads</th>
+          <th>R2 Reads</th>
+          <th>Merged</th>
+          <th>Pass Rate</th>
+          <th>Q30</th>
+          <th>GC%</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CDR3-Lib-1</td>
+          <td><span class="cond-pill cond-input">Input</span></td>
+          <td>847,231</td><td>847,231</td><td>803,419</td>
+          <td><div class="inline-bar"><div class="bar-track"><div class="bar-fill" style="width:94.8%"></div></div><span class="bar-val">94.8%</span></div></td>
+          <td>91.2%</td><td>47.3%</td>
+          <td><span class="chip ok">OK</span></td>
+        </tr>
+        <tr>
+          <td>CDR3-Lib-2</td>
+          <td><span class="cond-pill cond-input">Input</span></td>
+          <td>912,847</td><td>912,847</td><td>868,205</td>
+          <td><div class="inline-bar"><div class="bar-track"><div class="bar-fill" style="width:95.1%"></div></div><span class="bar-val">95.1%</span></div></td>
+          <td>90.8%</td><td>46.9%</td>
+          <td><span class="chip ok">OK</span></td>
+        </tr>
+        <tr>
+          <td>CDR3-Sel-1</td>
+          <td><span class="cond-pill cond-selected">Selected</span></td>
+          <td>734,561</td><td>734,561</td><td>698,833</td>
+          <td><div class="inline-bar"><div class="bar-track"><div class="bar-fill" style="width:95.1%"></div></div><span class="bar-val">95.1%</span></div></td>
+          <td>92.1%</td><td>47.8%</td>
+          <td><span class="chip ok">OK</span></td>
+        </tr>
+        <tr>
+          <td>CDR3-Sel-2</td>
+          <td><span class="cond-pill cond-selected">Selected</span></td>
+          <td>889,344</td><td>889,344</td><td>845,877</td>
+          <td><div class="inline-bar"><div class="bar-track"><div class="bar-fill" style="width:95.1%"></div></div><span class="bar-val">95.1%</span></div></td>
+          <td>91.5%</td><td>48.1%</td>
+          <td><span class="chip ok">OK</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Within-condition logo -->
+  <div class="tbl-card" style="margin-bottom:24px">
+    <div class="tbl-card-hd" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Within-condition Amino Acid Frequency</span>
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="font-size:11px;font-weight:500;color:var(--t3)">Condition</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 12px;border-radius:6px;background:var(--as);color:var(--a2)">Input</span>
+      </div>
+    </div>
+    <div class="tbl-card-desc">
+      Letter height is proportional to the intercept log-odds from a binomial GLM per position–AA pair.
+      Taller letters indicate amino acids observed more frequently at that position in the Input condition.
+    </div>
+    <!-- Chemistry legend -->
+    <div class="logo-legend-inline">
+      <span class="lli"><span class="lli-dot" style="background:#000"></span>Hydrophobic</span>
+      <span class="lli"><span class="lli-dot" style="background:#058F3A"></span>Polar</span>
+      <span class="lli"><span class="lli-dot" style="background:#1F3EAA"></span>Basic</span>
+      <span class="lli"><span class="lli-dot" style="background:#CC0000"></span>Acidic</span>
+    </div>
+    <div class="logo-outer">
+      <div class="logo-scroll">
+        <svg id="logo-within-svg"></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pairwise differential enrichment -->
+  <div class="tbl-card" style="margin-bottom:24px">
+    <div class="tbl-card-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>Pairwise Differential Enrichment</span>
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="font-size:11px;font-weight:500;color:var(--t3)">Comparison</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 12px;border-radius:6px;background:#EDE7F6;color:#512DA8">Input</span>
+        <span style="font-size:11px;color:var(--t3)">vs</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 12px;border-radius:6px;background:var(--as);color:var(--a2)">Selected</span>
+      </div>
+    </div>
+    <div class="tbl-card-desc">
+      Bidirectional logo: letters <strong>above</strong> the axis are enriched in the <strong>Selected</strong> condition;
+      letters <strong>below</strong> are enriched in <strong>Input</strong>. Height is proportional to
+      log(LRT statistic). Only positions with at least one significant enrichment are shown with tall letters.
+    </div>
+
+    <div class="logo-legend-inline">
+      <span class="lli"><span class="lli-dot" style="background:#000"></span>Hydrophobic</span>
+      <span class="lli"><span class="lli-dot" style="background:#058F3A"></span>Polar</span>
+      <span class="lli"><span class="lli-dot" style="background:#1F3EAA"></span>Basic</span>
+      <span class="lli"><span class="lli-dot" style="background:#CC0000"></span>Acidic</span>
+      <span class="lli" style="margin-left:8px;border-left:1px solid var(--bd);padding-left:12px">
+        <span style="display:inline-block;width:18px;height:3px;background:var(--a2);margin-right:5px;vertical-align:middle;border-radius:2px"></span>
+        Above = enriched in Selected
+      </span>
+    </div>
+
+    <div class="logo-section-sep">Bidirectional</div>
+    <div class="logo-outer">
+      <div class="logo-scroll">
+        <svg id="logo-pair-svg"></svg>
+      </div>
+    </div>
+
+    <div class="logo-section-sep" style="border-top:1px solid var(--bd2);margin-top:6px">Significant Enrichments</div>
+    <div style="padding:4px 16px 6px;font-size:11px;color:var(--t3);font-style:italic">
+      Showing all 8 significant enrichments (Benjamini–Hochberg FDR &lt; 5%, sorted by LRT statistic)
+    </div>
+    <div class="enrich-tbl-wrap">
+      <table class="rpt-tbl">
+        <thead>
+          <tr>
+            <th>Position</th>
+            <th>Ref AA</th>
+            <th>Observed AA</th>
+            <th>LRT Statistic</th>
+            <th>Adj. P Value</th>
+            <th>Direction</th>
+          </tr>
+        </thead>
+        <tbody id="enrich-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Key Findings -->
+  <div class="tbl-card" style="margin-bottom:24px">
+    <div class="tbl-card-hd">Key Findings</div>
+    <ul class="kf-list">
+      <li class="kf-item">
+        <span class="kf-num">1</span>
+        <span>
+          <strong>8 significant enrichments</strong> identified (FDR &lt; 5%) across 4 positions
+          (P3, P6, P8, P11), out of 12 positions tested across 20 amino acids.
+        </span>
+      </li>
+      <li class="kf-item">
+        <span class="kf-num">2</span>
+        <span>
+          <strong>Position 6</strong> shows the strongest signal (LRT = 38.1, padj = 0.0001):
+          glutamic acid (E) is replaced by lysine (K) or arginine (R), a dramatic
+          acidic → basic charge reversal, suggesting electrostatic optimisation of the epitope–receptor interface.
+        </span>
+      </li>
+      <li class="kf-item">
+        <span class="kf-num">3</span>
+        <span>
+          <strong>Position 3</strong> shows tyrosine (Y) → tryptophan (W) enrichment (LRT = 24.7, padj = 0.00024).
+          Both residues are aromatic polar, but tryptophan's larger indole ring may provide additional
+          hydrophobic surface burial or extended π-stacking interactions.
+        </span>
+      </li>
+      <li class="kf-item">
+        <span class="kf-num">4</span>
+        <span>
+          <strong>Position 8</strong> shows K → R enrichment (LRT = 19.5, padj = 0.00082).
+          Both residues are basic; arginine's guanidinium group offers additional hydrogen-bond donors
+          and is commonly enriched at binding interfaces.
+        </span>
+      </li>
+      <li class="kf-item">
+        <span class="kf-num">5</span>
+        <span>
+          <strong>Position 11</strong> shows D → N enrichment (LRT = 17.2, padj = 0.00142):
+          removal of the aspartate negative charge. Taken together with positions 6 and 8,
+          the overall selection pressure favours a net positive charge increase across the peptide,
+          consistent with binding to an acidic receptor surface.
+        </span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Bottom action bar -->
+  <div class="action-bar">
+    <div class="action-bar-meta">
+      <span class="action-bar-title">Analysis Complete</span>
+      <span class="action-bar-sub">AA enrichment pipeline finished — 4 samples, 2 conditions, 3.22M reads processed.</span>
+      <div class="action-bar-tags">
+        <span class="action-bar-tag">FastP QC</span>
+        <span class="action-bar-tag">Diamond BLASTX</span>
+        <span class="action-bar-tag">Logistic Regression</span>
+        <span class="action-bar-tag">BH Correction</span>
+        <span class="action-bar-tag">8 Significant Hits</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-run btn-secondary btn-sm" onclick="alert('Demo mode — download disabled.')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Report
+      </button>
+      <button class="btn-run btn-sm" onclick="alert('Demo mode — download disabled.')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Output Files
+      </button>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ── AA chemistry colours ──────────────────────────────────────────── */
+const AAC = {
+  A:'#000',V:'#000',L:'#000',I:'#000',P:'#000',F:'#000',M:'#000',W:'#000',
+  G:'#058F3A',S:'#058F3A',T:'#058F3A',C:'#058F3A',Y:'#058F3A',N:'#058F3A',Q:'#058F3A',
+  K:'#1F3EAA',R:'#1F3EAA',H:'#1F3EAA',
+  D:'#CC0000',E:'#CC0000'
+};
+
+/* ── Within-condition data (Input, 12 positions) ───────────────────── */
+const WITHIN = [
+  {pos:1,  aa:[{l:'M',w:.82},{l:'G',w:.08},{l:'A',w:.06},{l:'V',w:.04}]},
+  {pos:2,  aa:[{l:'G',w:.78},{l:'A',w:.12},{l:'S',w:.07},{l:'T',w:.03}]},
+  {pos:3,  aa:[{l:'Y',w:.74},{l:'F',w:.15},{l:'W',w:.08},{l:'H',w:.03}]},
+  {pos:4,  aa:[{l:'D',w:.71},{l:'E',w:.18},{l:'N',w:.08},{l:'S',w:.03}]},
+  {pos:5,  aa:[{l:'P',w:.88},{l:'A',w:.07},{l:'V',w:.05}]},
+  {pos:6,  aa:[{l:'E',w:.62},{l:'D',w:.21},{l:'Q',w:.12},{l:'K',w:.05}]},
+  {pos:7,  aa:[{l:'L',w:.80},{l:'I',w:.11},{l:'V',w:.09}]},
+  {pos:8,  aa:[{l:'K',w:.68},{l:'R',w:.22},{l:'H',w:.10}]},
+  {pos:9,  aa:[{l:'V',w:.77},{l:'L',w:.14},{l:'I',w:.09}]},
+  {pos:10, aa:[{l:'L',w:.83},{l:'I',w:.10},{l:'V',w:.07}]},
+  {pos:11, aa:[{l:'D',w:.73},{l:'E',w:.17},{l:'N',w:.10}]},
+  {pos:12, aa:[{l:'Y',w:.85},{l:'F',w:.09},{l:'W',w:.06}]},
+];
+
+/* ── Pairwise data (Input vs Selected, log-odds scale 0–1) ─────────── */
+const PAIRWISE = [
+  {pos:1,  aa:[{l:'M',w:.08}]},
+  {pos:2,  aa:[{l:'G',w:.05},{l:'A',w:-.04}]},
+  {pos:3,  aa:[{l:'W',w:.72},{l:'Y',w:-.52},{l:'F',w:-.20}]},
+  {pos:4,  aa:[{l:'E',w:.07},{l:'D',w:-.07}]},
+  {pos:5,  aa:[{l:'P',w:.04}]},
+  {pos:6,  aa:[{l:'K',w:.68},{l:'R',w:.32},{l:'E',w:-.62},{l:'D',w:-.38}]},
+  {pos:7,  aa:[{l:'L',w:.07},{l:'I',w:-.07}]},
+  {pos:8,  aa:[{l:'R',w:.58},{l:'K',w:-.58}]},
+  {pos:9,  aa:[{l:'V',w:.06},{l:'I',w:-.06}]},
+  {pos:10, aa:[{l:'L',w:.05}]},
+  {pos:11, aa:[{l:'N',w:.62},{l:'D',w:-.55},{l:'E',w:-.07}]},
+  {pos:12, aa:[{l:'Y',w:.05},{l:'F',w:-.05}]},
+];
+
+/* ── Enrichment table rows ─────────────────────────────────────────── */
+const ENRICH_ROWS = [
+  {pos:6,  ref:'E', obs:'K', lrt:38.1, padj:8e-5},
+  {pos:3,  ref:'Y', obs:'W', lrt:24.7, padj:2.4e-4},
+  {pos:6,  ref:'E', obs:'R', lrt:22.3, padj:3.1e-4},
+  {pos:8,  ref:'K', obs:'R', lrt:19.5, padj:8.2e-4},
+  {pos:11, ref:'D', obs:'N', lrt:17.2, padj:1.42e-3},
+  {pos:3,  ref:'Y', obs:'F', lrt:9.2,  padj:1.82e-2},
+  {pos:6,  ref:'E', obs:'Q', lrt:8.4,  padj:2.41e-2},
+  {pos:11, ref:'E', obs:'Q', lrt:7.8,  padj:2.96e-2},
+];
+
+/* ── Letter drawing ────────────────────────────────────────────────── */
+function drawLetter(g, cx, topY, letter, h, colW) {
+  if (h < 1.5) return;
+  const CAP = 0.72, WR = 0.62;
+  const fs  = h / CAP;
+  const sx  = colW / (fs * WR);
+  const lg  = g.append('g').attr('transform', `translate(${cx},${topY + h})`);
+  lg.append('text')
+    .attr('x', 0).attr('y', 0)
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'alphabetic')
+    .attr('font-family', "'Arial Black', Arial, sans-serif")
+    .attr('font-weight', 900)
+    .attr('font-size', fs)
+    .attr('fill', AAC[letter] || '#888')
+    .attr('transform', `scale(${sx},1)`)
+    .text(letter);
+}
+
+/* ── Within-condition logo ─────────────────────────────────────────── */
+function renderWithin(svgId, data) {
+  const CW = 46, MAX_H = 84, ML = 14, MR = 14, MT = 10, MB = 26;
+  const W = data.length * CW + ML + MR;
+  const H = MAX_H + MT + MB;
+
+  const svg = d3.select('#' + svgId).attr('width', W).attr('height', H);
+  svg.selectAll('*').remove();
+  const g = svg.append('g').attr('transform', `translate(${ML},${MT})`);
+
+  data.forEach((col, ci) => {
+    const cx = ci * CW + CW / 2;
+    const sorted = [...col.aa].sort((a, b) => a.w - b.w);
+    let y = MAX_H;
+    sorted.forEach(d => {
+      const h = d.w * MAX_H;
+      y -= h;
+      drawLetter(g, cx, y, d.l, h, CW - 6);
+    });
+    g.append('text')
+      .attr('x', cx).attr('y', MAX_H + 18)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 9).attr('fill', '#9AA2AB')
+      .attr('font-family', 'Inter, sans-serif')
+      .text(col.pos);
+  });
+}
+
+/* ── Pairwise bidirectional logo ───────────────────────────────────── */
+function renderPairwise(svgId, data) {
+  const CW = 46, MAX_H = 78, ML = 14, MR = 14, MT = 10, MB = 26;
+  const W = data.length * CW + ML + MR;
+  const H = MAX_H * 2 + MT + MB;
+  const AX = MAX_H;
+
+  const svg = d3.select('#' + svgId).attr('width', W).attr('height', H);
+  svg.selectAll('*').remove();
+  const g = svg.append('g').attr('transform', `translate(${ML},${MT})`);
+
+  // axis
+  g.append('line')
+    .attr('x1', 0).attr('x2', data.length * CW)
+    .attr('y1', AX).attr('y2', AX)
+    .attr('stroke', '#E3E8EF').attr('stroke-width', 1.5);
+
+  // "Selected ↑" and "Input ↑" labels on axis
+  g.append('text').attr('x', data.length * CW - 2).attr('y', AX - 5)
+    .attr('text-anchor', 'end').attr('font-size', 8).attr('fill', '#2FA4A9')
+    .attr('font-family', 'Inter, sans-serif').text('Selected ↑');
+  g.append('text').attr('x', data.length * CW - 2).attr('y', AX + 13)
+    .attr('text-anchor', 'end').attr('font-size', 8).attr('fill', '#9AA2AB')
+    .attr('font-family', 'Inter, sans-serif').text('Input ↑');
+
+  data.forEach((col, ci) => {
+    const cx = ci * CW + CW / 2;
+    const pos = col.aa.filter(d => d.w > 0).sort((a, b) => a.w - b.w);
+    const neg = col.aa.filter(d => d.w < 0).sort((a, b) => b.w - a.w);
+
+    let yP = AX;
+    pos.forEach(d => {
+      const h = Math.abs(d.w) * MAX_H * 0.9;
+      yP -= h;
+      drawLetter(g, cx, yP, d.l, h, CW - 6);
+    });
+
+    let yN = AX;
+    neg.forEach(d => {
+      const h = Math.abs(d.w) * MAX_H * 0.9;
+      drawLetter(g, cx, yN, d.l, h, CW - 6);
+      yN += h;
+    });
+
+    g.append('text')
+      .attr('x', cx).attr('y', MAX_H * 2 + 18)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 9).attr('fill', '#9AA2AB')
+      .attr('font-family', 'Inter, sans-serif')
+      .text(col.pos);
+  });
+}
+
+/* ── Enrichment table ──────────────────────────────────────────────── */
+function renderEnrichTable() {
+  const AA_PROP = {
+    A:'Hydrophobic',V:'Hydrophobic',L:'Hydrophobic',I:'Hydrophobic',
+    P:'Hydrophobic',F:'Hydrophobic',M:'Hydrophobic',W:'Hydrophobic',
+    G:'Polar',S:'Polar',T:'Polar',C:'Polar',Y:'Polar',N:'Polar',Q:'Polar',
+    K:'Basic',R:'Basic',H:'Basic',D:'Acidic',E:'Acidic'
+  };
+  const PROP_CLS = {
+    Hydrophobic:'tag-hydrophobic',Polar:'tag-polar',Acidic:'tag-acidic',Basic:'tag-basic'
+  };
+  const fmt = n => n < 0.001 ? n.toExponential(1) : n.toFixed(4);
+
+  const tbody = document.getElementById('enrich-tbody');
+  ENRICH_ROWS.forEach(r => {
+    const tr = document.createElement('tr');
+    const refProp = AA_PROP[r.ref] || 'Unknown';
+    const obsProp = AA_PROP[r.obs] || 'Unknown';
+    tr.innerHTML = `
+      <td><strong>P${r.pos}</strong></td>
+      <td>
+        <span style="color:${AAC[r.ref]||'#888'};font-weight:900;font-size:15px;font-family:'Arial Black',Arial,sans-serif">${r.ref}</span>
+        <span class="aa-tag ${PROP_CLS[refProp]||'tag-unknown'}" style="margin-left:5px">${refProp}</span>
+      </td>
+      <td>
+        <span style="color:${AAC[r.obs]||'#888'};font-weight:900;font-size:15px;font-family:'Arial Black',Arial,sans-serif">${r.obs}</span>
+        <span class="aa-tag ${PROP_CLS[obsProp]||'tag-unknown'}" style="margin-left:5px">${obsProp}</span>
+      </td>
+      <td><strong>${r.lrt.toFixed(1)}</strong></td>
+      <td>${fmt(r.padj)}</td>
+      <td><span class="dir-tag dir-b">Selected ↑</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ── Init ──────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  renderWithin('logo-within-svg', WITHIN);
+  renderPairwise('logo-pair-svg', PAIRWISE);
+  renderEnrichTable();
+
+  // Animate status bar fill after a brief delay
+  setTimeout(() => {
+    const fill = document.getElementById('status-fill-el');
+    if (fill) {
+      fill.style.width = '100%';
+      fill.style.background = 'var(--ok)';
+    }
+  }, 200);
+});
+</script>
+
+</body>
+</html>
